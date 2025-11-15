@@ -1,6 +1,6 @@
-# L4D & L4D2 Missiles Galore
+# L4D2 Missiles 
 
-A SourceMod plugin that lets survivors fire dumbfire and homing missiles from their firearms in coop/survival (disabled in Versus/Scavenge). The script is defined in `l4d2_missile.sp` and compiles to `missile_l4d.smx`.
+A SourceMod plugin that lets survivors fire dumbfire and homing missiles from their firearms in coop/survival (disabled in Versus/Scavenge). The script is defined in `l4d2_missile.sp` and compiles to `l4d2_missile.smx`.
 
 ## Requirements
 - Left 4 Dead or Left 4 Dead 2 server.
@@ -15,8 +15,8 @@ A SourceMod plugin that lets survivors fire dumbfire and homing missiles from th
 
 ## Installation
 1. Copy `l4d2_missile.sp` into your server’s `addons/sourcemod/scripting` folder.
-2. Compile with the matching SourceMod compiler: `./spcomp l4d2_missile.sp -o missile_l4d.smx`.
-3. Place `l4d2_missile.smx` in `addons/sourcemod/plugins` and changelevel or restart. Reload live with `sm plugins reload missile_l4d`.
+2. Compile with the matching SourceMod compiler: `./spcomp l4d2_missile.sp -o l4d2_missile.smx`.
+3. Place `l4d2_missile.smx` in `addons/sourcemod/plugins` and changelevel or restart. Reload live with `sm plugins reload l4d2_missile`.
 4. A config file `cfg/sourcemod/l4d2_missile.cfg` is auto-generated on first run; defaults are summarized below.
 
 ## Configuration (cfg/sourcemod/l4d2_missile.cfg)
