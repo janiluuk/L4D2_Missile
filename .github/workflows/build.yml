@@ -35,8 +35,16 @@ jobs:
       - name: Copy Left4DHooks scripts next to the plugin source
         shell: bash
         run: |
-          mkdir -p sourcemod/scripting
-          cp -R Left4DHooks/addons/sourcemod/scripting/* sourcemod/scripting/
+          mkdir -p sourcemod
+          if [ -d Left4DHooks/addons/sourcemod/scripting ]; then
+            src_dir="Left4DHooks/addons/sourcemod/scripting"
+          elif [ -d Left4DHooks/scripting ]; then
+            src_dir="Left4DHooks/scripting"
+          else
+            echo "Could not find Left4DHooks scripting directory" >&2
+            exit 1
+          fi
+          cp -R "${src_dir}" sourcemod/
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
