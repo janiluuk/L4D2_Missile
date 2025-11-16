@@ -89,8 +89,7 @@ stock void InitPlugin(const char[] prefix)
 {
     CreateConVar(tr("l4d2_%s_version", prefix), PLUGIN_VERSION, "插件版本", CVAR_FLAGS);
     g_pCvarAllow = CreateConVar(tr("l4d2_%s_allow", prefix), "1", "是否开启插件(主开关)", CVAR_FLAGS, true, 0.0, true, 1.0);
-    g_pCvarAllowMode = CreateConVar(tr("l4d2_%s_allow_mode", prefix), "15", "开启插件的模式
-0=禁用.1=战役/写实.2=生存.4=对抗.8=清道夫.15=全部", CVAR_FLAGS, true, 0.0, true, 15.0);
+    g_pCvarAllowMode = CreateConVar(tr("l4d2_%s_allow_mode", prefix), "15", "开启插件的模式\n0=禁用.1=战役/写实.2=生存.4=对抗.8=清道夫.15=全部", CVAR_FLAGS, true, 0.0, true, 15.0);
     g_pCvarEnableMode = CreateConVar(tr("l4d2_%s_enable_mode", prefix), "", "开启插件的模式(相对于 mp_gamemode)使用半角逗号隔开.空=全部", CVAR_FLAGS, true, 0.0, true, 15.0);
     g_pCvarDisableMode = CreateConVar(tr("l4d2_%s_disable_mode", prefix), "", "关闭插件的模式(相对于 mp_gamemode)使用半角逗号隔开.空=没有", CVAR_FLAGS, true, 0.0, true, 15.0);
     HookEvent("round_start", Event_psRoundStart, EventHookMode_PostNoCopy);

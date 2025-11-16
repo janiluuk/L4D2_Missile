@@ -33,16 +33,6 @@
 
 static const Float:TARGET_HINT_COOLDOWN = 1.5;
 
-bool:IsValidClient(client)
-{
-	return (client>0 && client<=MaxClients && IsClientInGame(client));
-}
-
-bool:IsValidAliveClient(client)
-{
-	return IsValidClient(client) && IsPlayerAlive(client);
-}
-
 new Handle:l4d2_missile_radius;
 new Handle:l4d2_missile_damage;
 new Handle:l4d2_missile_damage_tosurvivor;
