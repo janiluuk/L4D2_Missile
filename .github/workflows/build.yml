@@ -1,0 +1,67 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 03 01 */3 *'
+
+jobs:
+  build:
+    name: build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            os_short: oldlinux
+          - os: windows-latest
+            os_short: win
+    steps:
+      - name: Prepare env
+        shell: bash
+        run: echo "GITHUB_SHA_SHORT=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y wget tar lib32z1 lib32stdc++6
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install wget --no-progress
+
+      - name: Download SourceMod 1.12.0-git7219
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            wget -nv "https://sm.alliedmods.net/smdrop/1.12/sourcemod-1.12.0-git7219-windows.zip" -O sm.zip
+            unzip sm.zip -d sm
+          else
+            wget -nv "https://sm.alliedmods.net/smdrop/1.12/sourcemod-1.12.0-git7219-linux.tar.gz" -O sm.tar.gz
+            mkdir -p sm
+            tar -xzf sm.tar.gz -C sm
+          fi
+
+      - name: Compile plugin
+        shell: bash
+        run: |
+          spcomp="$GITHUB_WORKSPACE/sm/addons/sourcemod/scripting/spcomp"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            spcomp="${spcomp}.exe"
+          fi
+          includes="-i $GITHUB_WORKSPACE -i $GITHUB_WORKSPACE/sm/addons/sourcemod/scripting/include"
+          mkdir -p package/addons/sourcemod/plugins
+          "$spcomp" $includes -v0 "$GITHUB_WORKSPACE/l4d2_missile.sp" -o package/addons/sourcemod/plugins/l4d2_missile.smx
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: l4d2_missile-sm1.12.0-git7219-${{ matrix.os_short }}-${{ env.GITHUB_SHA_SHORT }}
+          path: package
