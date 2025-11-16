@@ -3,6 +3,12 @@
 #include <sdktools>
 #include <sdktools_functions>
 #include <sdkhooks>
+#include <left4dhooks>
+
+#define PLUGIN_SKILL_NAME "Missile"
+#define PLUGIN_VERSION                  "1.1"
+
+#include "modules/baseplugin.sp"
 
 #define SOUNDMISSILELAUNCHER "physics/destruction/ExplosiveGasLeak.wav"
 #define SOUNDMISSILELAUNCHER2 "physics/destruction/explosivegasleak.wav"
@@ -87,6 +93,8 @@ new Float:MissileTargetNotifyTime[MAXPLAYERS+1];
 new g_iVelocity;
 new L4D2Version;
 new GameMode;
+new bool:g_bMissileModeEnabled;
+new Handle:g_hGameModeCvar = INVALID_HANDLE;
 new g_sprite;
 
 new Float:modeloffset=50.0;
@@ -97,11 +105,11 @@ new Float:missilespeed_normal=800.0;
 
 public Plugin:myinfo =
 {
-	name = "L4D2 Missiles Galore",
-	author = "Yaniho",
-	description = "Missiles for weapons in L4D & L4D2",
-	version = "2.1",
-	url = "https://github.com/janiluuk/L4D2_Missile"
+        name = "L4D2 Missiles Galore",
+        author = "Yaniho",
+        description = "Missiles for weapons in L4D & L4D2",
+        version = PLUGIN_VERSION,
+        url = "https://github.com/janiluuk/L4D2_Missile"
 }
 
 public OnPluginStart()
@@ -135,64 +143,50 @@ public OnPluginStart()
 
 	g_iVelocity = FindSendPropInfo("CBasePlayer", "m_vecVelocity[0]");
 
-	decl String:GameName[16];
-	GetConVarString(FindConVar("mp_gamemode"), GameName, sizeof(GameName));
+g_hGameModeCvar = FindConVar("mp_gamemode");
+if(g_hGameModeCvar != INVALID_HANDLE)
+{
+HookConVarChange(g_hGameModeCvar, CvarChanged);
+}
 
-	if (StrEqual(GameName, "survival", false))
-	{
-		GameMode = 3;
-	}
-	else if (StrEqual(GameName, "versus", false) || StrEqual(GameName, "teamversus", false) || StrEqual(GameName, "scavenge", false) || StrEqual(GameName, "teamscavenge", false))
-	{
-		GameMode = 2;
-	}
-	else if (StrEqual(GameName, "coop", false) || StrEqual(GameName, "realism", false))
-	{
-		GameMode = 1;
-	}
-	else
-	{
-		GameMode = 0;
-	}
+UpdateGameMode();
 
-	GetGameFolderName(GameName, sizeof(GameName));
-	if (StrEqual(GameName, "left4dead2", false))
-	{
-		L4D2Version=true;
+decl String:GameName[16];
+GetGameFolderName(GameName, sizeof(GameName));
+if (StrEqual(GameName, "left4dead2", false))
+{
+L4D2Version=true;
 	}
 	else
 	{
 		L4D2Version=false;
 	}
 
-	AutoExecConfig(true, "l4d2_missile");
+AutoExecConfig(true, "l4d2_missile");
 
-	if(GameMode!=2)
-	{
-		RegConsoleCmd("sm_m", MissileHelp);
-		RegConsoleCmd("sm_missilehelp", MissileHelpFull);
-		RegConsoleCmd("sm_missiles", MissileHelpFull);
+RegConsoleCmd("sm_m", MissileHelp);
+RegConsoleCmd("sm_missilehelp", MissileHelpFull);
+RegConsoleCmd("sm_missiles", MissileHelpFull);
 
-		HookEvent("player_death", player_death);
-		HookEvent("infected_death", Event_InfectedDeath);
-		HookEvent("weapon_fire", weapon_fire);
-		HookEvent("round_start", round_start);
-		HookEvent("round_end", round_end);
-		HookEvent("map_transition", round_end);
+HookEvent("player_death", player_death);
+HookEvent("infected_death", Event_InfectedDeath);
+HookEvent("weapon_fire", weapon_fire);
+HookEvent("round_start", round_start);
+HookEvent("round_end", round_end);
+HookEvent("map_transition", round_end);
 
-		if(L4D2Version)
-		{
-			HookEvent("charger_charge_start", charger_charge_start);
-		}
+if(L4D2Version)
+{
+HookEvent("charger_charge_start", charger_charge_start);
+}
 
-		HookEvent("tongue_grab", tongue_grab);
-		HookEvent("witch_harasser_set", witch_harasser_set);
-		HookEvent("ability_use", ability_use);
+HookEvent("tongue_grab", tongue_grab);
+HookEvent("witch_harasser_set", witch_harasser_set);
+HookEvent("ability_use", ability_use);
 
-		ResetAllState();
-		Set();
-		gamestart=false;
-	}
+ResetAllState();
+Set();
+gamestart=false;
 }
 
 public OnMapStart()
@@ -254,10 +248,42 @@ stock PrecacheParticleSystem(const String:p_strEffectName[])
 
 ResetAllState()
 {
-	for (new x = 1; x < MAXPLAYERS+1; x++)
-	{
-		ResetClientState(x);
-	}
+for (new x = 1; x < MAXPLAYERS+1; x++)
+{
+ResetClientState(x);
+}
+}
+
+UpdateGameMode()
+{
+decl String:modeName[32];
+if(g_hGameModeCvar != INVALID_HANDLE)
+{
+GetConVarString(g_hGameModeCvar, modeName, sizeof(modeName));
+}
+else
+{
+modeName[0] = '\0';
+}
+
+if (StrEqual(modeName, "survival", false))
+{
+GameMode = 3;
+}
+else if (StrEqual(modeName, "versus", false) || StrEqual(modeName, "teamversus", false) || StrEqual(modeName, "scavenge", false) || StrEqual(modeName, "teamscavenge", false))
+{
+GameMode = 2;
+}
+else if (StrEqual(modeName, "coop", false) || StrEqual(modeName, "realism", false))
+{
+GameMode = 1;
+}
+else
+{
+GameMode = 0;
+}
+
+g_bMissileModeEnabled = (GameMode != 2);
 }
 
 ResetClientState(x)
@@ -284,8 +310,9 @@ UnHookAll()
 
 public OnConfigExecuted()
 {
-	ResetAllState();
-	Set();
+ResetAllState();
+Set();
+UpdateGameMode();
 }
 
 Set()
@@ -295,34 +322,56 @@ Set()
 
 public CvarChanged(Handle:convar, const String:oldValue[], const String:newValue[])
 {
-	Set();
+if(convar == g_hGameModeCvar)
+{
+UpdateGameMode();
+}
+Set();
 }
 
 public Action:round_start(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	ResetAllState();
-	gamestart=true;
+if(!g_bMissileModeEnabled)
+{
+return Plugin_Continue;
+}
+ResetAllState();
+gamestart=true;
 }
 
 public Action:round_end(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	UnHookAll();
-	ResetAllState();
-	gamestart=false;
+if(!g_bMissileModeEnabled)
+{
+return Plugin_Continue;
+}
+UnHookAll();
+ResetAllState();
+gamestart=false;
 }
 
 public Action:MissileHelp(client,args)
 {
-	ShowMissileHelp(client, true);
-	ShowMissileHelpPanel(client);
-	return Plugin_Handled;
+if(!g_bMissileModeEnabled)
+{
+ReplyToCommand(client, "[MISSILES] Plugin disabled in this game mode.");
+return Plugin_Handled;
+}
+ShowMissileHelp(client, true);
+ShowMissileHelpPanel(client);
+return Plugin_Handled;
 }
 
 public Action:MissileHelpFull(client,args)
 {
-	ShowMissileHelp(client, true);
-	ShowMissileHelpPanel(client);
-	return Plugin_Handled;
+if(!g_bMissileModeEnabled)
+{
+ReplyToCommand(client, "[MISSILES] Plugin disabled in this game mode.");
+return Plugin_Handled;
+}
+ShowMissileHelp(client, true);
+ShowMissileHelpPanel(client);
+return Plugin_Handled;
 }
 
 ShowMissileHelp(client, bool:includeChat)
@@ -375,7 +424,11 @@ public int PanelCloseHandler(Handle:menu, MenuAction:action, any:param1, any:par
 
 public Action:ability_use(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	decl String:s[20];
+if(!g_bMissileModeEnabled)
+{
+return Plugin_Continue;
+}
+decl String:s[20];
 	GetEventString(event, "ability", s, 32);
 	if(StrEqual(s, "ability_spit", true))
 	{
@@ -398,15 +451,23 @@ public Action:ability_use(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Action:witch_harasser_set(Handle:hEvent, const String:strName[], bool:DontBroadcast)
 {
-	if(GetRandomFloat(0.0, 100.0)<GetConVarFloat(l4d2_missile_infected_witch) )
-	{
-		CreateTimer(GetRandomFloat(0.1, 0.5), InfectedAntiMissile, 0);
+if(!g_bMissileModeEnabled)
+{
+return Plugin_Continue;
+}
+if(GetRandomFloat(0.0, 100.0)<GetConVarFloat(l4d2_missile_infected_witch) )
+{
+CreateTimer(GetRandomFloat(0.1, 0.5), InfectedAntiMissile, 0);
 	}
 }
 
 public Action:charger_charge_start(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
+if(!g_bMissileModeEnabled)
+{
+return Plugin_Continue;
+}
+new client = GetClientOfUserId(GetEventInt(event, "userid"));
 	if(IsValidAliveClient(client) && !Hooked[client] && GetRandomFloat(0.0, 100.0)<GetConVarFloat(l4d2_missile_infected_charger))
 	{
 		LaunchMissile(client, missilespeed_trace2, MissileTrace, true, 30.0);
@@ -415,7 +476,11 @@ public Action:charger_charge_start(Handle:event, const String:name[], bool:dontB
 
 public Action:tongue_grab(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	new client = GetClientOfUserId(GetEventInt(event, "userid"));
+if(!g_bMissileModeEnabled)
+{
+return Plugin_Continue;
+}
+new client = GetClientOfUserId(GetEventInt(event, "userid"));
 	if(IsValidAliveClient(client) && !Hooked[client] && GetRandomFloat(0.0, 100.0)<GetConVarFloat(l4d2_missile_infected_smoker))
 	{
 		LaunchMissile(client, missilespeed_trace2, MissileTrace, true, 30.0);
@@ -424,7 +489,11 @@ public Action:tongue_grab(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Action:weapon_fire(Handle:event, const String:name[], bool:dontBroadcast)
 {
-	if(gamestart==false) { return Plugin_Continue; }
+if(!g_bMissileModeEnabled)
+{
+return Plugin_Continue;
+}
+if(gamestart==false) { return Plugin_Continue; }
 	new client = GetClientOfUserId(GetEventInt(event, "userid"));
 	if(!IsValidAliveClient(client)) return Plugin_Continue;
 
@@ -460,7 +529,11 @@ public Action:weapon_fire(Handle:event, const String:name[], bool:dontBroadcast)
 
 public Action:InfectedAntiMissile(Handle:timer, any:ent)
 {
-	new selected=0;
+if(!g_bMissileModeEnabled)
+{
+return Plugin_Stop;
+}
+new selected=0;
 	decl candidate[MAXPLAYERS+1];
 	new index=0;
 	for(new client = 1; client <= MaxClients; client++)
@@ -502,6 +575,10 @@ UpGrade(x, kill)
 
 public Action:Event_InfectedDeath(Handle:hEvent, const String:strName[], bool:DontBroadcast)
 {
+if(!g_bMissileModeEnabled)
+{
+return Plugin_Continue;
+}
 
 	new attacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"));
 	if (attacker<=0)
@@ -520,6 +597,10 @@ public Action:Event_InfectedDeath(Handle:hEvent, const String:strName[], bool:Do
 
 public Action:player_death(Handle:hEvent, const String:strName[], bool:DontBroadcast)
 {
+if(!g_bMissileModeEnabled)
+{
+return Plugin_Continue;
+}
 
 	new victim = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 	new attacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"));
