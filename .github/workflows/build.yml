@@ -26,12 +26,6 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Checkout Left4DHooks
-        uses: actions/checkout@v4
-        with:
-          repository: SilvDev/Left4DHooks
-          path: Left4DHooks
-
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
