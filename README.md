@@ -1,31 +1,107 @@
-# L4D2 Missiles 
+# L4D2 Missiles
 
-A SourceMod plugin that lets survivors fire dumbfire and homing missiles from their firearms in coop/survival (disabled in Versus/Scavenge). The script is defined in `l4d2_missile.sp` and compiles to `l4d2_missile.smx`.
+Missiles in Left 4 Dead 2.  
+Survivors can fire dumbfire and homing rockets from their guns in **Coop** and **Versus**.  
+Special infected (and even commons) can sometimes answer back with their own missiles.
+
+Plugin file: `l4d2_missile.sp` → `l4d2_missile.smx`.
+
+---
+
+## What it does
+
+- Survivors get a small stock of missiles and earn more by killing infected.
+- **Fire a dumbfire missile:** hold **Use** and shoot.
+- **Fire a homing missile:** crouch + **Use** + shoot.
+- Homing missiles:
+  - Lock onto visible enemies within a configurable range.
+  - Show hint text and a lock-on beep to the target.
+  - Optionally **highlight the shooter** to all infected so they can hunt them.
+  - Disappear if the shooter dies before impact.
+  - Can also lock onto and intercept enemy missiles.
+- Missiles can be **shot down**: if you shoot a missile, it explodes early.
+- There is a **cooldown** between missile launches (configurable, default 5 seconds).  
+  If you try too soon, you get a hint telling you how many seconds are left.
+- Optional AI fun:
+  - Commons can occasionally fire counter-missiles when survivors launch.
+  - Specials can launch missiles on key actions (spit, charge, drag, witch aggro, tank rock, etc.).
+- Other plugins can optionally hook in to decide if a **specific player** is allowed to fire missiles at all (e.g. talents/perks system).  
+  If nothing hooks it, everyone in the right team/gamemode is allowed by default.
+
+Use `!m` (`sm_m`, `sm_missilehelp`, or `sm_missiles`) in chat/console to open the in-game help panel.
+
+---
 
 ## Requirements
-- Left 4 Dead or Left 4 Dead 2 server.
-- Metamod:Source and SourceMod 1.10+ with the bundled `sdkhooks` extension.
 
-## Gameplay
-- Survivors start each round with 1 missile. Earn more by killing infected: 1 per 30 common, 3 per special infected, 5 if the special infected death was a headshot. Inventory is capped by `l4d2_missile_limit` (default 3).
-- Fire with any allowed weapon by holding **Use** and shooting. Crouch + **Use** + shoot to launch a homing missile. Default allowed weapons: rifle, sniper, shotgun, magnum, SMG, pistol, grenade launcher (each gated by `l4d2_missile_weapon_*` cvars).
-- Homing missiles lock onto visible enemies within `l4d2_missile_radar_range` (1500.0). Keep line of sight to maintain the lock. Targets get a hint + lock-on beep, their team is notified, and infected see a short ring highlight around the shooter. Homing missiles can also lock onto enemy missiles to intercept them.
-- Counter-fire is optional: common infected can attempt anti-missile shots when survivors launch (`l4d2_missile_infected_anti`), and specials can fire on key actions (spit, charge start, drag, witch startled, tank rock throw).
-- Press `!m` (`sm_m`, `sm_missilehelp`, or `sm_missiles`) in chat/console for the in-game help panel.
+- Left 4 Dead 2 server (should also work on L4D1 with compatible entities).
+- Metamod:Source
+- SourceMod 1.10+ with `sdkhooks` enabled.
+
+---
+
+## Gameplay details
+
+- **Missile stock**
+  - Survivors start each round with **1 missile**.
+  - Earn missiles by killing infected:
+    - Commons: 1 missile per `l4d2_missile_kills` kills (default **30**).
+    - Specials: **3** kills’ worth.
+    - Special headshot: **5** kills’ worth.
+  - Inventory is capped by `l4d2_missile_limit` (default **3**).
+
+- **Weapons that can fire missiles**
+  - Controlled by `l4d2_missile_weapon_*` cvars:
+    - `l4d2_missile_weapon_rifle`
+    - `l4d2_missile_weapon_sniper`
+    - `l4d2_missile_weapon_shotgun`
+    - `l4d2_missile_weapon_magnum`
+    - `l4d2_missile_weapon_smg`
+    - `l4d2_missile_weapon_pistol`
+    - `l4d2_missile_weapon_grenade`
+  - `1` = enabled, `0` = disabled.
+
+- **Homing logic**
+  - Lock range: `l4d2_missile_radar_range` (default **1500.0** units).
+  - Turn/steer speed: `l4d2_missile_tracefactor` (default **1.5**).
+  - Keeps scanning for a valid enemy target in front of the missile.
+  - Maintains line-of-sight; if LoS is lost, it will stop tracking.
+  - Target gets:
+    - Hint text like “Missile locked on you!”.
+    - Lock beep sound.
+  - Shooter sees distance feedback in hints.
+  - Shooter highlight for infected:
+    - Controlled by `l4d2_missile_highlight_shooter` (default **1** = enabled).
+    - Draws a ring around the shooter so infected players know who to focus.
+
+- **Missile destruction**
+  - If the shooter dies while their homing missile is still flying:
+    - The missile is automatically destroyed and explodes where it is.
+  - If a missile is shot by any gun:
+    - It detonates immediately at that point.
+
+- **Cooldown**
+  - `l4d2_missile_cooldown` (default **5.0** seconds).
+  - If a player tries to fire before the cooldown is over:
+    - They get a hint text telling them how many seconds remain until they can shoot again.
+    - The missile is not fired.
+
+---
+
+## Game modes
+
+- Designed for **Coop** and **Versus**.
+- Plugin checks current gamemode and only enables itself in allowed modes.
+- Per-player permission check:
+  - There is a small API hook that lets other plugins say “this player can/can’t launch missiles”.
+  - If nothing overrides it, everyone in the right team/gamemode is allowed to fire.
+
+---
 
 ## Installation
-1. Copy `l4d2_missile.sp` into your server’s `addons/sourcemod/scripting` folder.
-2. Compile with the matching SourceMod compiler: `./spcomp l4d2_missile.sp -o l4d2_missile.smx`.
-3. Place `l4d2_missile.smx` in `addons/sourcemod/plugins` and changelevel or restart. Reload live with `sm plugins reload l4d2_missile`.
-4. A config file `cfg/sourcemod/l4d2_missile.cfg` is auto-generated on first run; defaults are summarized below.
 
-## Configuration (cfg/sourcemod/l4d2_missile.cfg)
-- Damage: `l4d2_missile_radius` 200.0, `l4d2_missile_damage` 500.0, `l4d2_missile_damage_tosurvivor` 0.0, `l4d2_missile_push` 1200.
-- Safety: `l4d2_missile_safe` 1 shrinks the blast radius near survivors to reduce friendly-fire.
-- Inventory: `l4d2_missile_limit` 3, `l4d2_missile_kills` 30 (kills needed per missile).
-- Homing: `l4d2_missile_tracefactor` 1.5 (turn rate), `l4d2_missile_radar_range` 1500.0 (lock distance).
-- Weapon toggles: `l4d2_missile_weapon_rifle`, `..._sniper`, `..._shotgun`, `..._magnum`, `..._smg`, `..._pistol`, `..._grenade` (1/0).
-- Infected missile chances (percent): `l4d2_missile_infected_smoker`, `..._charger`, `..._spitter`, `..._witch`, `..._tank_throw` fire on their key ability; `l4d2_missile_infected_anti` is the common infected counter-fire chance when survivors launch.
-
-## Credits
-Authored by Yaniho; see `l4d2_missile.sp` for full metadata.
+1. Copy `l4d2_missile.sp` into:
+   - `addons/sourcemod/scripting`
+2. Compile:
+   ```bash
+   ./spcomp l4d2_missile.sp -o l4d2_missile.smx
