@@ -3,7 +3,6 @@
 #include <sdktools>
 #include <sdktools_functions>
 #include <sdkhooks>
-#include <left4dhooks>
 
 #define PLUGIN_VERSION                  "1.1"
 
