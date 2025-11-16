@@ -55,20 +55,6 @@ jobs:
             tar -xzf sm.tar.gz -C sm
           fi
 
-      - name: Stage Left4DHooks includes
-        shell: bash
-        run: |
-          mkdir -p sourcemod/scripting
-          if [ -d Left4DHooks/addons/sourcemod/scripting ]; then
-            src_dir="Left4DHooks/addons/sourcemod/scripting"
-          elif [ -d Left4DHooks/scripting ]; then
-            src_dir="Left4DHooks/scripting"
-          else
-            echo "Could not find Left4DHooks scripting directory" >&2
-            exit 1
-          fi
-          cp -R "${src_dir}/." sourcemod/scripting/
-
       - name: Compile plugin
         shell: bash
         run: |
