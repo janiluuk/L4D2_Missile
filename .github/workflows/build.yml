@@ -32,6 +32,12 @@ jobs:
           repository: SilvDev/Left4DHooks
           path: Left4DHooks
 
+      - name: Copy Left4DHooks includes next to the plugin source
+        shell: bash
+        run: |
+          mkdir -p sourcemod/scripting/include
+          cp -R Left4DHooks/addons/sourcemod/scripting/include/. sourcemod/scripting/include/
+
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -62,7 +68,7 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then
             spcomp="${spcomp}.exe"
           fi
-          includes="-i $GITHUB_WORKSPACE -i $GITHUB_WORKSPACE/sm/addons/sourcemod/scripting/include -i $GITHUB_WORKSPACE/Left4DHooks/scripting -i $GITHUB_WORKSPACE/Left4DHooks/scripting/include"
+          includes="-i $GITHUB_WORKSPACE -i $GITHUB_WORKSPACE/sourcemod/scripting/include -i $GITHUB_WORKSPACE/sm/addons/sourcemod/scripting/include -i $GITHUB_WORKSPACE/Left4DHooks/addons/sourcemod/scripting -i $GITHUB_WORKSPACE/Left4DHooks/addons/sourcemod/scripting/include"
           mkdir -p package/addons/sourcemod/plugins
           "$spcomp" $includes -v0 "$GITHUB_WORKSPACE/l4d2_missile.sp" -o package/addons/sourcemod/plugins/l4d2_missile.smx
 
