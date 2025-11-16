@@ -19,7 +19,9 @@ enum GameMode_t
         GMF_SCAVENGE = (1 << 4)
 };
 
-int g_iAllowPluginMode = GMF_COOP | GMF_SURVIVAL;
+const int GMF_SUPPORTED = (GMF_COOP | GMF_SURVIVAL | GMF_VERSUS | GMF_SCAVENGE);
+
+int g_iAllowPluginMode = GMF_SUPPORTED;
 GameMode_t g_iGameModeFlags = GMF_NONE;
 Handle g_hTimerCheckGameMode;
 ConVar g_pCvarAllow, g_pCvarAllowMode, g_pCvarEnableMode, g_pCvarDisableMode;
@@ -146,7 +148,6 @@ public OnPluginStart()
         g_iVelocity = FindSendPropInfo("CBasePlayer", "m_vecVelocity[0]");
 
         InitMissilePluginSettings();
-        g_pCvarAllowMode.SetInt(GMF_COOP | GMF_SURVIVAL);
 
 decl String:GameName[16];
 GetGameFolderName(GameName, sizeof(GameName));
@@ -1862,7 +1863,9 @@ void InitMissilePluginSettings()
 {
         CreateConVar("l4d2_missile_version", PLUGIN_VERSION, "Plugin version", CVAR_FLAGS);
         g_pCvarAllow = CreateConVar("l4d2_missile_allow", "1", "Enable the plugin (master switch)", CVAR_FLAGS, true, 0.0, true, 1.0);
-        g_pCvarAllowMode = CreateConVar("l4d2_missile_allow_mode", "3", "Gamemodes that enable the plugin\n0=Disable.1=Campaign/Realism.2=Survival.4=Versus.8=Scavenge.15=All", CVAR_FLAGS, true, 0.0, true, 15.0);
+        char defaultAllowMode[12];
+        IntToString(GMF_SUPPORTED, defaultAllowMode, sizeof(defaultAllowMode));
+        g_pCvarAllowMode = CreateConVar("l4d2_missile_allow_mode", defaultAllowMode, "Gamemodes that enable the plugin\n0=Disable.1=Campaign/Realism.2=Survival.4=Versus.16=Scavenge.23=All", CVAR_FLAGS, true, 0.0, true, float(GMF_SUPPORTED));
         g_pCvarEnableMode = CreateConVar("l4d2_missile_enable_mode", "", "Comma-separated mp_gamemode names that force the plugin on. Empty=All", CVAR_FLAGS);
         g_pCvarDisableMode = CreateConVar("l4d2_missile_disable_mode", "", "Comma-separated mp_gamemode names that disable the plugin. Empty=None", CVAR_FLAGS);
         HookEvent("round_start", Event_GameModeRoundStart, EventHookMode_PostNoCopy);
