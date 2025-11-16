@@ -82,9 +82,6 @@ new Float:MissileTargetNotifyTime[MAXPLAYERS+1];
 
 new g_iVelocity;
 new L4D2Version;
-new GameMode;
-new bool:g_bMissileModeEnabled;
-new Handle:g_hGameModeCvar = INVALID_HANDLE;
 new g_sprite;
 
 new Float:modeloffset=50.0;
@@ -131,15 +128,10 @@ public OnPluginStart()
 	l4d2_missile_tracefactor = CreateConVar("l4d2_missile_tracefactor", "1.5", "Trace factor of missile. Do not need to change [0.5, 3.0]");
 	l4d2_missile_radar_range = CreateConVar("l4d2_missile_radar_range", "1500.0", "Radar scan range: missiles do not lock on target if out of this range [500.0, -]");
 
-	g_iVelocity = FindSendPropInfo("CBasePlayer", "m_vecVelocity[0]");
+        g_iVelocity = FindSendPropInfo("CBasePlayer", "m_vecVelocity[0]");
 
-g_hGameModeCvar = FindConVar("mp_gamemode");
-if(g_hGameModeCvar != INVALID_HANDLE)
-{
-HookConVarChange(g_hGameModeCvar, CvarChanged);
-}
-
-UpdateGameMode();
+        InitPlugin(PLUGIN_SKILL_NAME);
+        g_pCvarAllowMode.SetInt(GMF_COOP | GMF_SURVIVAL);
 
 decl String:GameName[16];
 GetGameFolderName(GameName, sizeof(GameName));
@@ -175,7 +167,6 @@ HookEvent("witch_harasser_set", witch_harasser_set);
 HookEvent("ability_use", ability_use);
 
 ResetAllState();
-Set();
 gamestart=false;
 }
 
@@ -244,38 +235,6 @@ ResetClientState(x);
 }
 }
 
-UpdateGameMode()
-{
-decl String:modeName[32];
-if(g_hGameModeCvar != INVALID_HANDLE)
-{
-GetConVarString(g_hGameModeCvar, modeName, sizeof(modeName));
-}
-else
-{
-modeName[0] = '\0';
-}
-
-if (StrEqual(modeName, "survival", false))
-{
-GameMode = 3;
-}
-else if (StrEqual(modeName, "versus", false) || StrEqual(modeName, "teamversus", false) || StrEqual(modeName, "scavenge", false) || StrEqual(modeName, "teamscavenge", false))
-{
-GameMode = 2;
-}
-else if (StrEqual(modeName, "coop", false) || StrEqual(modeName, "realism", false))
-{
-GameMode = 1;
-}
-else
-{
-GameMode = 0;
-}
-
-g_bMissileModeEnabled = (GameMode != 2);
-}
-
 ResetClientState(x)
 {
 	LastUseTime[x]=0.0;
@@ -298,30 +257,9 @@ UnHookAll()
 	}
 }
 
-public OnConfigExecuted()
-{
-ResetAllState();
-Set();
-UpdateGameMode();
-}
-
-Set()
-{
-
-}
-
-public CvarChanged(Handle:convar, const String:oldValue[], const String:newValue[])
-{
-if(convar == g_hGameModeCvar)
-{
-UpdateGameMode();
-}
-Set();
-}
-
 public Action:round_start(Handle:event, const String:name[], bool:dontBroadcast)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 return Plugin_Continue;
 }
@@ -331,7 +269,7 @@ gamestart=true;
 
 public Action:round_end(Handle:event, const String:name[], bool:dontBroadcast)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 return Plugin_Continue;
 }
@@ -342,7 +280,7 @@ gamestart=false;
 
 public Action:MissileHelp(client,args)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 ReplyToCommand(client, "[MISSILES] Plugin disabled in this game mode.");
 return Plugin_Handled;
@@ -354,7 +292,7 @@ return Plugin_Handled;
 
 public Action:MissileHelpFull(client,args)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 ReplyToCommand(client, "[MISSILES] Plugin disabled in this game mode.");
 return Plugin_Handled;
@@ -414,7 +352,7 @@ public int PanelCloseHandler(Handle:menu, MenuAction:action, any:param1, any:par
 
 public Action:ability_use(Handle:event, const String:name[], bool:dontBroadcast)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 return Plugin_Continue;
 }
@@ -441,7 +379,7 @@ decl String:s[20];
 
 public Action:witch_harasser_set(Handle:hEvent, const String:strName[], bool:DontBroadcast)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 return Plugin_Continue;
 }
@@ -453,7 +391,7 @@ CreateTimer(GetRandomFloat(0.1, 0.5), InfectedAntiMissile, 0);
 
 public Action:charger_charge_start(Handle:event, const String:name[], bool:dontBroadcast)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 return Plugin_Continue;
 }
@@ -466,7 +404,7 @@ new client = GetClientOfUserId(GetEventInt(event, "userid"));
 
 public Action:tongue_grab(Handle:event, const String:name[], bool:dontBroadcast)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 return Plugin_Continue;
 }
@@ -479,7 +417,7 @@ new client = GetClientOfUserId(GetEventInt(event, "userid"));
 
 public Action:weapon_fire(Handle:event, const String:name[], bool:dontBroadcast)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 return Plugin_Continue;
 }
@@ -519,7 +457,7 @@ if(gamestart==false) { return Plugin_Continue; }
 
 public Action:InfectedAntiMissile(Handle:timer, any:ent)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 return Plugin_Stop;
 }
@@ -565,7 +503,7 @@ UpGrade(x, kill)
 
 public Action:Event_InfectedDeath(Handle:hEvent, const String:strName[], bool:DontBroadcast)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 return Plugin_Continue;
 }
@@ -587,7 +525,7 @@ return Plugin_Continue;
 
 public Action:player_death(Handle:hEvent, const String:strName[], bool:DontBroadcast)
 {
-if(!g_bMissileModeEnabled)
+if(!IsPluginAllow())
 {
 return Plugin_Continue;
 }
