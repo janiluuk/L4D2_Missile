@@ -32,11 +32,11 @@ jobs:
           repository: SilvDev/Left4DHooks
           path: Left4DHooks
 
-      - name: Copy Left4DHooks includes next to the plugin source
+      - name: Copy Left4DHooks scripts next to the plugin source
         shell: bash
         run: |
-          mkdir -p sourcemod/scripting/include
-          cp -R Left4DHooks/addons/sourcemod/scripting/include/. sourcemod/scripting/include/
+          mkdir -p sourcemod/scripting
+          cp -R Left4DHooks/addons/sourcemod/scripting/* sourcemod/scripting/
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
