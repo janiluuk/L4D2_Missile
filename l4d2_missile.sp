@@ -3,12 +3,27 @@
 #include <sdktools>
 #include <sdktools_functions>
 #include <sdkhooks>
-#include <left4dhooks>
 
-#define PLUGIN_SKILL_NAME "Missile"
 #define PLUGIN_VERSION                  "1.1"
 
-#include "modules/baseplugin.sp"
+#define CVAR_FLAGS                FCVAR_NONE
+#define IsValidClient(%1)         ((1 <= %1 <= MaxClients) && IsClientInGame(%1))
+#define IsValidAliveClient(%1)    (IsValidClient(%1) && IsPlayerAlive(%1))
+
+enum GameMode_t
+{
+        GMF_NONE = 0,
+        GMF_COOP = (1 << 0),
+        GMF_SURVIVAL = (1 << 1),
+        GMF_VERSUS = (1 << 2),
+        GMF_SCAVENGE = (1 << 4)
+};
+
+int g_iAllowPluginMode = GMF_COOP | GMF_SURVIVAL;
+GameMode_t g_iGameModeFlags = GMF_NONE;
+Handle g_hTimerCheckGameMode;
+ConVar g_pCvarAllow, g_pCvarAllowMode, g_pCvarEnableMode, g_pCvarDisableMode;
+bool g_bAllowByPlugin = true, g_bAllowByMode = true;
 
 #define SOUNDMISSILELAUNCHER "physics/destruction/ExplosiveGasLeak.wav"
 #define SOUNDMISSILELAUNCHER2 "physics/destruction/explosivegasleak.wav"
@@ -130,7 +145,7 @@ public OnPluginStart()
 
         g_iVelocity = FindSendPropInfo("CBasePlayer", "m_vecVelocity[0]");
 
-        InitPlugin(PLUGIN_SKILL_NAME);
+        InitMissilePluginSettings();
         g_pCvarAllowMode.SetInt(GMF_COOP | GMF_SURVIVAL);
 
 decl String:GameName[16];
@@ -1814,16 +1829,159 @@ public bool:DontHitSelfAndSurvivor(entity, mask, any:data)
 
 public bool:DontHitSelfAndInfected(entity, mask, any:data)
 {
-	if(entity == data)
-	{
-		return false;
-	}
-	else if(entity>0 && entity<=MaxClients)
-	{
-		if(IsClientInGame(entity) && GetClientTeam(entity)==3)
-		{
-			return false;
-		}
-	}
-	return true;
+        if(entity == data)
+        {
+                return false;
+        }
+        else if(entity>0 && entity<=MaxClients)
+        {
+                if(IsClientInGame(entity) && GetClientTeam(entity)==3)
+                {
+                        return false;
+                }
+        }
+        return true;
+}
+
+stock bool IsPluginAllow()
+{
+        if(!g_bAllowByPlugin || !g_bAllowByMode)
+        {
+                return false;
+        }
+
+        if(!(g_iAllowPluginMode & view_as<int>(g_iGameModeFlags)))
+        {
+                return false;
+        }
+
+        return true;
+}
+
+void InitMissilePluginSettings()
+{
+        CreateConVar("l4d2_missile_version", PLUGIN_VERSION, "Plugin version", CVAR_FLAGS);
+        g_pCvarAllow = CreateConVar("l4d2_missile_allow", "1", "Enable the plugin (master switch)", CVAR_FLAGS, true, 0.0, true, 1.0);
+        g_pCvarAllowMode = CreateConVar("l4d2_missile_allow_mode", "3", "Gamemodes that enable the plugin\n0=Disable.1=Campaign/Realism.2=Survival.4=Versus.8=Scavenge.15=All", CVAR_FLAGS, true, 0.0, true, 15.0);
+        g_pCvarEnableMode = CreateConVar("l4d2_missile_enable_mode", "", "Comma-separated mp_gamemode names that force the plugin on. Empty=All", CVAR_FLAGS);
+        g_pCvarDisableMode = CreateConVar("l4d2_missile_disable_mode", "", "Comma-separated mp_gamemode names that disable the plugin. Empty=None", CVAR_FLAGS);
+        HookEvent("round_start", Event_GameModeRoundStart, EventHookMode_PostNoCopy);
+
+        ConVarHooked_OnPluginState(null, "", "");
+        g_pCvarAllow.AddChangeHook(ConVarHooked_OnPluginState);
+        g_pCvarAllowMode.AddChangeHook(ConVarHooked_OnPluginState);
+        g_pCvarEnableMode.AddChangeHook(ConVarHooked_OnPluginState);
+        g_pCvarDisableMode.AddChangeHook(ConVarHooked_OnPluginState);
+
+        ConVar gamemode = FindConVar("mp_gamemode");
+        if(gamemode)
+        {
+                gamemode.AddChangeHook(ConVarHooked_OnGameModeUpdate);
+        }
+}
+
+public void OnConfigsExecuted()
+{
+        Timer_CheckGameMode(null, 0);
+}
+
+public void ConVarHooked_OnGameModeUpdate(ConVar cvar, const char[] oldValue, const char[] newValue)
+{
+        static ConVar mp_gamemode;
+        if(!mp_gamemode)
+        {
+                mp_gamemode = FindConVar("mp_gamemode");
+        }
+
+        g_bAllowByMode = true;
+
+        char currentMode[24];
+        mp_gamemode.GetString(currentMode, sizeof(currentMode));
+
+        char enableMode[255];
+        g_pCvarEnableMode.GetString(enableMode, sizeof(enableMode));
+        if(enableMode[0] != EOS)
+        {
+                char mode[16][24];
+                int numMode = ExplodeString(enableMode, ",", mode, sizeof(mode), sizeof(mode[]));
+                for(int i = 0; i < numMode; ++i)
+                {
+                        TrimString(mode[i]);
+                        if(StrEqual(mode[i], currentMode, false))
+                        {
+                                g_bAllowByMode = true;
+                                return;
+                        }
+                }
+        }
+
+        char disableMode[255];
+        g_pCvarDisableMode.GetString(disableMode, sizeof(disableMode));
+        if(disableMode[0] != EOS)
+        {
+                char mode[16][24];
+                int numMode = ExplodeString(disableMode, ",", mode, sizeof(mode), sizeof(mode[]));
+                for(int i = 0; i < numMode; ++i)
+                {
+                        TrimString(mode[i]);
+                        if(StrEqual(mode[i], currentMode, false))
+                        {
+                                g_bAllowByMode = false;
+                                return;
+                        }
+                }
+        }
+}
+
+public void ConVarHooked_OnPluginState(ConVar cvar, const char[] oldValue, const char[] newValue)
+{
+        g_bAllowByPlugin = g_pCvarAllow.BoolValue;
+        g_iAllowPluginMode = g_pCvarAllowMode.IntValue;
+}
+
+public void Event_GameModeRoundStart(Event event, const char[] eventName, bool dontBroadcast)
+{
+        if(g_hTimerCheckGameMode != null)
+        {
+                KillTimer(g_hTimerCheckGameMode);
+        }
+
+        g_hTimerCheckGameMode = CreateTimer(1.0, Timer_CheckGameMode);
+        ConVarHooked_OnGameModeUpdate(null, "", "");
+}
+
+public Action Timer_CheckGameMode(Handle timer, any unused)
+{
+        g_hTimerCheckGameMode = null;
+        int entity = CreateEntityByName("info_gamemode");
+        if(!IsValidEntity(entity))
+        {
+                return Plugin_Continue;
+        }
+
+        DispatchSpawn(entity);
+        HookSingleEntityOutput(entity, "OnCoop", OnOutput_OnGamemode, true);
+        HookSingleEntityOutput(entity, "OnSurvival", OnOutput_OnGamemode, true);
+        HookSingleEntityOutput(entity, "OnVersus", OnOutput_OnGamemode, true);
+        HookSingleEntityOutput(entity, "OnScavenge", OnOutput_OnGamemode, true);
+        AcceptEntityInput(entity, "PostSpawnActivate");
+        AcceptEntityInput(entity, "Kill");
+        return Plugin_Stop;
+}
+
+public void OnOutput_OnGamemode(const char[] output, int caller, int activator, float delay)
+{
+        switch(output[3])
+        {
+                case 'o':
+                        g_iGameModeFlags = GMF_COOP;
+                case 'u':
+                        g_iGameModeFlags = GMF_SURVIVAL;
+                case 'e':
+                        g_iGameModeFlags = GMF_VERSUS;
+                case 'c':
+                        g_iGameModeFlags = GMF_SCAVENGE;
+                default:
+                        g_iGameModeFlags = GMF_NONE;
+        }
 }

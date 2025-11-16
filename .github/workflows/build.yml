@@ -26,26 +26,6 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Fetch Left4DHooks
-        uses: actions/checkout@v4
-        with:
-          repository: SilvDev/Left4DHooks
-          path: Left4DHooks
-
-      - name: Copy Left4DHooks scripts next to the plugin source
-        shell: bash
-        run: |
-          mkdir -p sourcemod/scripting
-          mapfile -t script_dirs < <(find Left4DHooks -type d -name scripting)
-          if [ "${#script_dirs[@]}" -eq 0 ]; then
-            echo "Could not find any Left4DHooks scripting directory" >&2
-            exit 1
-          fi
-          for dir in "${script_dirs[@]}"; do
-            echo "Copying ${dir} -> sourcemod/scripting"
-            cp -R "${dir}/." sourcemod/scripting/
-          done
-
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -76,7 +56,7 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then
             spcomp="${spcomp}.exe"
           fi
-          includes="-i $GITHUB_WORKSPACE -i $GITHUB_WORKSPACE/sourcemod/scripting/include -i $GITHUB_WORKSPACE/sm/addons/sourcemod/scripting/include -i $GITHUB_WORKSPACE/Left4DHooks/addons/sourcemod/scripting -i $GITHUB_WORKSPACE/Left4DHooks/addons/sourcemod/scripting/include"
+          includes="-i $GITHUB_WORKSPACE -i $GITHUB_WORKSPACE/sm/addons/sourcemod/scripting/include"
           mkdir -p package/addons/sourcemod/plugins
           "$spcomp" $includes -v0 "$GITHUB_WORKSPACE/l4d2_missile.sp" -o package/addons/sourcemod/plugins/l4d2_missile.smx
 
