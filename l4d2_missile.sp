@@ -3,6 +3,7 @@
 #include <sdktools>
 #include <sdktools_functions>
 #include <sdkhooks>
+#include <left4dhooks>
 
 #define PLUGIN_VERSION                  "1.1"
 
@@ -23,8 +24,7 @@ const int GMF_SUPPORTED = (GMF_COOP | GMF_SURVIVAL | GMF_VERSUS | GMF_SCAVENGE);
 
 int g_iAllowPluginMode = GMF_SUPPORTED;
 GameMode_t g_iGameModeFlags = GMF_NONE;
-Handle g_hTimerCheckGameMode;
-ConVar g_pCvarAllow, g_pCvarAllowMode, g_pCvarEnableMode, g_pCvarDisableMode;
+ConVar g_pCvarAllow, g_pCvarAllowMode, g_pCvarEnableMode, g_pCvarDisableMode, g_pGameModeCvar;
 bool g_bAllowByPlugin = true, g_bAllowByMode = true;
 
 #define SOUNDMISSILELAUNCHER "physics/destruction/ExplosiveGasLeak.wav"
@@ -118,6 +118,12 @@ public Plugin:myinfo =
 
 public OnPluginStart()
 {
+
+	if(!LibraryExists("left4dhooks"))
+	{
+		SetFailState("Left4DHooks extension is required.");
+	}
+
 	l4d2_missile_radius = CreateConVar("l4d2_missile_radius", "200.0", "Missile explode radius");
 	l4d2_missile_damage = CreateConVar("l4d2_missile_damage", "500.0", "Damage done by missile");
 	l4d2_missile_damage_tosurvivor = CreateConVar("l4d2_missile_damage_tosurvivor", "0.0", "Damage to survivors ");
@@ -145,45 +151,46 @@ public OnPluginStart()
 	l4d2_missile_tracefactor = CreateConVar("l4d2_missile_tracefactor", "1.5", "Trace factor of missile. Do not need to change [0.5, 3.0]");
 	l4d2_missile_radar_range = CreateConVar("l4d2_missile_radar_range", "1500.0", "Radar scan range: missiles do not lock on target if out of this range [500.0, -]");
 
-        g_iVelocity = FindSendPropInfo("CBasePlayer", "m_vecVelocity[0]");
+	g_iVelocity = FindSendPropInfo("CBasePlayer", "m_vecVelocity[0]");
 
-        InitMissilePluginSettings();
-
-decl String:GameName[16];
-GetGameFolderName(GameName, sizeof(GameName));
-if (StrEqual(GameName, "left4dead2", false))
-{
-L4D2Version=true;
+	decl String:GameName[16];
+	GetGameFolderName(GameName, sizeof(GameName));
+	if(StrEqual(GameName, "left4dead2", false))
+	{
+		L4D2Version = true;
 	}
 	else
 	{
-		L4D2Version=false;
+		L4D2Version = false;
 	}
 
-AutoExecConfig(true, "l4d2_missile");
+	InitMissilePluginSettings();
 
-RegConsoleCmd("sm_m", MissileHelp);
-RegConsoleCmd("sm_missilehelp", MissileHelpFull);
-RegConsoleCmd("sm_missiles", MissileHelpFull);
+	AutoExecConfig(true, "l4d2_missile");
 
-HookEvent("player_death", player_death);
-HookEvent("infected_death", Event_InfectedDeath);
-HookEvent("weapon_fire", weapon_fire);
-HookEvent("round_start", round_start);
-HookEvent("round_end", round_end);
-HookEvent("map_transition", round_end);
+	RegConsoleCmd("sm_m", MissileHelp);
+	RegConsoleCmd("sm_missilehelp", MissileHelpFull);
+	RegConsoleCmd("sm_missiles", MissileHelpFull);
 
-if(L4D2Version)
-{
-HookEvent("charger_charge_start", charger_charge_start);
-}
+	HookEvent("player_death", player_death);
+	HookEvent("infected_death", Event_InfectedDeath);
+	HookEvent("weapon_fire", weapon_fire);
+	HookEvent("round_start", round_start);
+	HookEvent("round_end", round_end);
+	HookEvent("map_transition", round_end);
 
-HookEvent("tongue_grab", tongue_grab);
-HookEvent("witch_harasser_set", witch_harasser_set);
-HookEvent("ability_use", ability_use);
+	if(L4D2Version)
+	{
+		HookEvent("charger_charge_start", charger_charge_start);
+	}
 
-ResetAllState();
-gamestart=false;
+	HookEvent("tongue_grab", tongue_grab);
+	HookEvent("witch_harasser_set", witch_harasser_set);
+	HookEvent("ability_use", ability_use);
+
+	ResetAllState();
+	gamestart=false;
+
 }
 
 public OnMapStart()
@@ -1861,130 +1868,157 @@ stock bool IsPluginAllow()
 
 void InitMissilePluginSettings()
 {
-        CreateConVar("l4d2_missile_version", PLUGIN_VERSION, "Plugin version", CVAR_FLAGS);
-        g_pCvarAllow = CreateConVar("l4d2_missile_allow", "1", "Enable the plugin (master switch)", CVAR_FLAGS, true, 0.0, true, 1.0);
-        char defaultAllowMode[12];
-        IntToString(GMF_SUPPORTED, defaultAllowMode, sizeof(defaultAllowMode));
-        g_pCvarAllowMode = CreateConVar("l4d2_missile_allow_mode", defaultAllowMode, "Gamemodes that enable the plugin\n0=Disable.1=Campaign/Realism.2=Survival.4=Versus.16=Scavenge.23=All", CVAR_FLAGS, true, 0.0, true, float(GMF_SUPPORTED));
-        g_pCvarEnableMode = CreateConVar("l4d2_missile_enable_mode", "", "Comma-separated mp_gamemode names that force the plugin on. Empty=All", CVAR_FLAGS);
-        g_pCvarDisableMode = CreateConVar("l4d2_missile_disable_mode", "", "Comma-separated mp_gamemode names that disable the plugin. Empty=None", CVAR_FLAGS);
-        HookEvent("round_start", Event_GameModeRoundStart, EventHookMode_PostNoCopy);
 
-        ConVarHooked_OnPluginState(null, "", "");
-        g_pCvarAllow.AddChangeHook(ConVarHooked_OnPluginState);
-        g_pCvarAllowMode.AddChangeHook(ConVarHooked_OnPluginState);
-        g_pCvarEnableMode.AddChangeHook(ConVarHooked_OnPluginState);
-        g_pCvarDisableMode.AddChangeHook(ConVarHooked_OnPluginState);
+	CreateConVar("l4d2_missile_version", PLUGIN_VERSION, "Plugin version", CVAR_FLAGS);
+	g_pCvarAllow = CreateConVar("l4d2_missile_allow", "1", "Enable the plugin (master switch)", CVAR_FLAGS, true, 0.0, true, 1.0);
+	char defaultAllowMode[12];
+	IntToString(GMF_SUPPORTED, defaultAllowMode, sizeof(defaultAllowMode));
+	g_pCvarAllowMode = CreateConVar("l4d2_missile_allow_mode", defaultAllowMode, "Gamemodes that enable the plugin\n0=Disable.1=Campaign/Realism.2=Survival.4=Versus.16=Scavenge.23=All", CVAR_FLAGS, true, 0.0, true, float(GMF_SUPPORTED));
+	g_pCvarEnableMode = CreateConVar("l4d2_missile_enable_mode", "", "Comma-separated mp_gamemode names that force the plugin on. Empty=All", CVAR_FLAGS);
+	g_pCvarDisableMode = CreateConVar("l4d2_missile_disable_mode", "", "Comma-separated mp_gamemode names that disable the plugin. Empty=None", CVAR_FLAGS);
 
-        ConVar gamemode = FindConVar("mp_gamemode");
-        if(gamemode)
-        {
-                gamemode.AddChangeHook(ConVarHooked_OnGameModeUpdate);
-        }
+	ConVarHooked_OnPluginState(null, "", "");
+	g_pCvarAllow.AddChangeHook(ConVarHooked_OnPluginState);
+	g_pCvarAllowMode.AddChangeHook(ConVarHooked_OnPluginState);
+	g_pCvarEnableMode.AddChangeHook(ConVarHooked_OnPluginState);
+	g_pCvarDisableMode.AddChangeHook(ConVarHooked_OnPluginState);
+
+	g_pGameModeCvar = FindConVar("mp_gamemode");
+	if(g_pGameModeCvar)
+	{
+		g_pGameModeCvar.AddChangeHook(ConVarHooked_OnGameModeUpdate);
+	}
+
+	ConVarHooked_OnGameModeUpdate(null, "", "");
+	UpdateGameModeFlags();
+
 }
 
 public void OnConfigsExecuted()
 {
-        Timer_CheckGameMode(null, 0);
+
+	ConVarHooked_OnGameModeUpdate(null, "", "");
+	UpdateGameModeFlags();
+
 }
 
 public void ConVarHooked_OnGameModeUpdate(ConVar cvar, const char[] oldValue, const char[] newValue)
 {
-        static ConVar mp_gamemode;
-        if(!mp_gamemode)
-        {
-                mp_gamemode = FindConVar("mp_gamemode");
-        }
 
-        g_bAllowByMode = true;
+	g_bAllowByMode = true;
 
-        char currentMode[24];
-        mp_gamemode.GetString(currentMode, sizeof(currentMode));
+	char currentMode[24];
+	if(g_pGameModeCvar)
+	{
+		g_pGameModeCvar.GetString(currentMode, sizeof(currentMode));
+	}
+	else
+	{
+		currentMode[0] = '\0';
+	}
 
-        char enableMode[255];
-        g_pCvarEnableMode.GetString(enableMode, sizeof(enableMode));
-        if(enableMode[0] != EOS)
-        {
-                char mode[16][24];
-                int numMode = ExplodeString(enableMode, ",", mode, sizeof(mode), sizeof(mode[]));
-                for(int i = 0; i < numMode; ++i)
-                {
-                        TrimString(mode[i]);
-                        if(StrEqual(mode[i], currentMode, false))
-                        {
-                                g_bAllowByMode = true;
-                                return;
-                        }
-                }
-        }
+	char enableMode[255];
+	g_pCvarEnableMode.GetString(enableMode, sizeof(enableMode));
+	if(enableMode[0] != EOS)
+	{
+		g_bAllowByMode = false;
+		char mode[16][24];
+		int numMode = ExplodeString(enableMode, ",", mode, sizeof(mode), sizeof(mode[]));
+		for(int i = 0; i < numMode; ++i)
+		{
+			TrimString(mode[i]);
+			if(StrEqual(mode[i], currentMode, false))
+			{
+				g_bAllowByMode = true;
+				break;
+			}
+		}
+	}
 
-        char disableMode[255];
-        g_pCvarDisableMode.GetString(disableMode, sizeof(disableMode));
-        if(disableMode[0] != EOS)
-        {
-                char mode[16][24];
-                int numMode = ExplodeString(disableMode, ",", mode, sizeof(mode), sizeof(mode[]));
-                for(int i = 0; i < numMode; ++i)
-                {
-                        TrimString(mode[i]);
-                        if(StrEqual(mode[i], currentMode, false))
-                        {
-                                g_bAllowByMode = false;
-                                return;
-                        }
-                }
-        }
+	char disableMode[255];
+	g_pCvarDisableMode.GetString(disableMode, sizeof(disableMode));
+	if(g_bAllowByMode && disableMode[0] != EOS)
+	{
+		char mode[16][24];
+		int numMode = ExplodeString(disableMode, ",", mode, sizeof(mode), sizeof(mode[]));
+		for(int i = 0; i < numMode; ++i)
+		{
+			TrimString(mode[i]);
+			if(StrEqual(mode[i], currentMode, false))
+			{
+				g_bAllowByMode = false;
+				break;
+			}
+		}
+	}
+
+	UpdateGameModeFlags();
+
 }
 
 public void ConVarHooked_OnPluginState(ConVar cvar, const char[] oldValue, const char[] newValue)
 {
-        g_bAllowByPlugin = g_pCvarAllow.BoolValue;
-        g_iAllowPluginMode = g_pCvarAllowMode.IntValue;
+
+	g_bAllowByPlugin = g_pCvarAllow.BoolValue;
+	g_iAllowPluginMode = g_pCvarAllowMode.IntValue;
+
+}
+
+void UpdateGameModeFlags()
+{
+
+	GameMode_t newFlags = GMF_NONE;
+
+	if(L4D2Version)
+	{
+		newFlags = view_as<GameMode_t>(L4D2_GetGameModeType());
+	}
+	else
+	{
+		newFlags = view_as<GameMode_t>(L4D_GetGameModeType());
+	}
+
+	if(newFlags == GMF_NONE && g_pGameModeCvar)
+	{
+		char modeName[24];
+		g_pGameModeCvar.GetString(modeName, sizeof(modeName));
+		newFlags = MapGamemodeStringToFlags(modeName);
+	}
+
+	g_iGameModeFlags = newFlags;
+
+}
+
+GameMode_t MapGamemodeStringToFlags(const char[] mode)
+{
+
+	if(mode[0] == '\0')
+	{
+		return GMF_NONE;
+	}
+
+	if(StrContains(mode, "versus", false) != -1)
+	{
+		return GMF_VERSUS;
+	}
+	if(StrContains(mode, "scavenge", false) != -1)
+	{
+		return GMF_SCAVENGE;
+	}
+	if(StrContains(mode, "survival", false) != -1)
+	{
+		return GMF_SURVIVAL;
+	}
+	if(StrContains(mode, "realism", false) != -1 || StrContains(mode, "coop", false) != -1 || StrContains(mode, "mutation", false) != -1)
+	{
+		return GMF_COOP;
+	}
+
+	return GMF_NONE;
+
 }
 
 public void Event_GameModeRoundStart(Event event, const char[] eventName, bool dontBroadcast)
 {
-        if(g_hTimerCheckGameMode != null)
-        {
-                KillTimer(g_hTimerCheckGameMode);
-        }
-
-        g_hTimerCheckGameMode = CreateTimer(1.0, Timer_CheckGameMode);
-        ConVarHooked_OnGameModeUpdate(null, "", "");
-}
-
-public Action Timer_CheckGameMode(Handle timer, any unused)
-{
-        g_hTimerCheckGameMode = null;
-        int entity = CreateEntityByName("info_gamemode");
-        if(!IsValidEntity(entity))
-        {
-                return Plugin_Continue;
-        }
-
-        DispatchSpawn(entity);
-        HookSingleEntityOutput(entity, "OnCoop", OnOutput_OnGamemode, true);
-        HookSingleEntityOutput(entity, "OnSurvival", OnOutput_OnGamemode, true);
-        HookSingleEntityOutput(entity, "OnVersus", OnOutput_OnGamemode, true);
-        HookSingleEntityOutput(entity, "OnScavenge", OnOutput_OnGamemode, true);
-        AcceptEntityInput(entity, "PostSpawnActivate");
-        AcceptEntityInput(entity, "Kill");
-        return Plugin_Stop;
-}
-
-public void OnOutput_OnGamemode(const char[] output, int caller, int activator, float delay)
-{
-        switch(output[3])
-        {
-                case 'o':
-                        g_iGameModeFlags = GMF_COOP;
-                case 'u':
-                        g_iGameModeFlags = GMF_SURVIVAL;
-                case 'e':
-                        g_iGameModeFlags = GMF_VERSUS;
-                case 'c':
-                        g_iGameModeFlags = GMF_SCAVENGE;
-                default:
-                        g_iGameModeFlags = GMF_NONE;
-        }
+        // legacy stub preserved to avoid breaking existing configs; no longer used.
 }
