@@ -302,13 +302,6 @@ public OnClientDisconnect(client)
     ResetClientState(client);
 }
 
-// Clean up hooks/state when clients disconnect
-public OnClientDisconnect(client)
-{
-	UnHookMissile(client);
-	ResetClientState(client);
-}
-
 public OnConfigExecuted()
 {
     ResetAllState();
