@@ -1314,11 +1314,11 @@ HighlightShooterForTeam(shooter, team)
     color[2] = 64;
     color[3] = 200;
 
-    TE_SetupBeamRingPoint(pos, 20.0, 220.0, g_sprite, 0, 0, 10, 0.8, 5.0, 0.0, color, 0, 0);
     for (new i = 1; i <= MaxClients; i++)
     {
         if (IsValidClient(i) && GetClientTeam(i) == team)
         {
+            TE_SetupBeamRingPoint(pos, 20.0, 220.0, g_sprite, 0, 0, 10, 0.8, 5.0, 0.0, color, 0, 0);
             TE_SendToClient(i);
         }
     }
